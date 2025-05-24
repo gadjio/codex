@@ -315,6 +315,42 @@ async function responsesCreateViaChatCompletions(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Azure Responses API via `/openai/threads`
+// ---------------------------------------------------------------------------
+async function azureResponsesCreate(
+  openai: OpenAI,
+  input: ResponseCreateInput,
+): Promise<AsyncGenerator<ResponseEvent>> {
+  // NOTE: This is a lightweight shim that maps the Responses API onto the
+  // Azure "threads" endpoints. It currently only handles the common case of
+  // streaming a single user message. Complex sequences like resuming threads
+  // or sending tool outputs may require additional logic.
+
+  const messages = input.input.flatMap((item) => {
+    if (item.type !== "message") {
+      return [];
+    }
+    return item.content
+      .filter((c) => c.type === "input_text")
+      .map((c) => ({ role: item.role, content: c.text ?? "" }));
+  });
+
+  // @ts-expect-error Azure SDK does not yet type this helper
+  const stream = (await openai.beta.threads.createAndRun({
+    thread: { messages },
+    model: input.model,
+    instructions: input.instructions,
+    tools: input.tools,
+    tool_choice: input.tool_choice,
+    temperature: input.temperature,
+    top_p: input.top_p,
+    stream: true,
+  })) as AsyncGenerator<ResponseEvent>;
+
+  return stream;
+}
+
 // Non-streaming implementation
 async function nonStreamResponses(
   input: ResponseCreateInput,
@@ -709,8 +745,9 @@ async function* streamResponses(
   }
 }
 
-export {
+export { 
   responsesCreateViaChatCompletions,
+  azureResponsesCreate,
   ResponseCreateInput,
   ResponseOutput,
   ResponseEvent,
