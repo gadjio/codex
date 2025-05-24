@@ -22,7 +22,10 @@ import {
 } from "../config.js";
 import { log } from "../logger/log.js";
 import { parseToolCallArguments } from "../parsers.js";
-import { responsesCreateViaChatCompletions } from "../responses.js";
+import {
+  responsesCreateViaChatCompletions,
+  azureResponsesCreate,
+} from "../responses.js";
 import {
   ORIGIN,
   getSessionId,
@@ -798,11 +801,16 @@ export class AgentLoop {
               .filter(Boolean)
               .join("\n");
 
-            const responseCall =
-              !this.config.provider ||
-              this.config.provider?.toLowerCase() === "openai"
+            const provider = this.config.provider?.toLowerCase();
+            const responseCall = !provider || provider === "openai"
+              ? (params: ResponseCreateParams) =>
+                  this.oai.responses.create(params)
+              : provider === "azure"
                 ? (params: ResponseCreateParams) =>
-                    this.oai.responses.create(params)
+                    azureResponsesCreate(
+                      this.oai as AzureOpenAI,
+                      params as ResponseCreateParams & { stream: true },
+                    )
                 : (params: ResponseCreateParams) =>
                     responsesCreateViaChatCompletions(
                       this.oai,
@@ -1186,11 +1194,16 @@ export class AgentLoop {
                 .filter(Boolean)
                 .join("\n");
 
-              const responseCall =
-                !this.config.provider ||
-                this.config.provider?.toLowerCase() === "openai"
+              const provider = this.config.provider?.toLowerCase();
+              const responseCall = !provider || provider === "openai"
+                ? (params: ResponseCreateParams) =>
+                    this.oai.responses.create(params)
+                : provider === "azure"
                   ? (params: ResponseCreateParams) =>
-                      this.oai.responses.create(params)
+                      azureResponsesCreate(
+                        this.oai as AzureOpenAI,
+                        params as ResponseCreateParams & { stream: true },
+                      )
                   : (params: ResponseCreateParams) =>
                       responsesCreateViaChatCompletions(
                         this.oai,
