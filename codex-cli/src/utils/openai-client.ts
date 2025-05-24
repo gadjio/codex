@@ -32,10 +32,15 @@ export function createOpenAIClient(
     headers["OpenAI-Project"] = OPENAI_PROJECT;
   }
 
-  if (config.provider?.toLowerCase() === "azure") {
+  const provider = config.provider?.toLowerCase();
+  const baseURL = getBaseUrl(config.provider) ?? "";
+  const isAzure =
+    provider === "azure" || baseURL.includes("openai.azure.com");
+
+  if (isAzure) {
     return new AzureOpenAI({
       apiKey: getApiKey(config.provider),
-      baseURL: getBaseUrl(config.provider),
+      baseURL,
       apiVersion: AZURE_OPENAI_API_VERSION,
       timeout: OPENAI_TIMEOUT_MS,
       defaultHeaders: headers,
@@ -44,7 +49,7 @@ export function createOpenAIClient(
 
   return new OpenAI({
     apiKey: getApiKey(config.provider),
-    baseURL: getBaseUrl(config.provider),
+    baseURL,
     timeout: OPENAI_TIMEOUT_MS,
     defaultHeaders: headers,
   });

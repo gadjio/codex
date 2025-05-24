@@ -308,34 +308,31 @@ export class AgentLoop {
     const timeoutMs = OPENAI_TIMEOUT_MS;
     const apiKey = this.config.apiKey ?? process.env["OPENAI_API_KEY"] ?? "";
     const baseURL = getBaseUrl(this.provider);
+    const isAzure =
+      this.provider.toLowerCase() === "azure" ||
+      (baseURL?.includes("openai.azure.com") ?? false);
 
-    this.oai = new OpenAI({
-      // The OpenAI JS SDK only requires `apiKey` when making requests against
-      // the official API.  When running unit‑tests we stub out all network
-      // calls so an undefined key is perfectly fine.  We therefore only set
-      // the property if we actually have a value to avoid triggering runtime
-      // errors inside the SDK (it validates that `apiKey` is a non‑empty
-      // string when the field is present).
-      ...(apiKey ? { apiKey } : {}),
-      baseURL,
-      defaultHeaders: {
-        originator: ORIGIN,
-        version: CLI_VERSION,
-        session_id: this.sessionId,
-        ...(OPENAI_ORGANIZATION
-          ? { "OpenAI-Organization": OPENAI_ORGANIZATION }
-          : {}),
-        ...(OPENAI_PROJECT ? { "OpenAI-Project": OPENAI_PROJECT } : {}),
-      },
-      httpAgent: PROXY_URL ? new HttpsProxyAgent(PROXY_URL) : undefined,
-      ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
-    });
-
-    if (this.provider.toLowerCase() === "azure") {
+    if (isAzure) {
       this.oai = new AzureOpenAI({
         apiKey,
         baseURL,
         apiVersion: AZURE_OPENAI_API_VERSION,
+        defaultHeaders: {
+          originator: ORIGIN,
+          version: CLI_VERSION,
+          session_id: this.sessionId,
+          ...(OPENAI_ORGANIZATION
+            ? { "OpenAI-Organization": OPENAI_ORGANIZATION }
+            : {}),
+          ...(OPENAI_PROJECT ? { "OpenAI-Project": OPENAI_PROJECT } : {}),
+        },
+        httpAgent: PROXY_URL ? new HttpsProxyAgent(PROXY_URL) : undefined,
+        ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
+      });
+    } else {
+      this.oai = new OpenAI({
+        ...(apiKey ? { apiKey } : {}),
+        baseURL,
         defaultHeaders: {
           originator: ORIGIN,
           version: CLI_VERSION,
@@ -798,16 +795,18 @@ export class AgentLoop {
               .filter(Boolean)
               .join("\n");
 
-            const responseCall =
-              !this.config.provider ||
-              this.config.provider?.toLowerCase() === "openai"
-                ? (params: ResponseCreateParams) =>
-                    this.oai.responses.create(params)
-                : (params: ResponseCreateParams) =>
-                    responsesCreateViaChatCompletions(
-                      this.oai,
-                      params as ResponseCreateParams & { stream: true },
-                    );
+            const isAzureProvider =
+              this.provider.toLowerCase() === "azure" ||
+              (getBaseUrl(this.provider)?.includes("openai.azure.com") ?? false);
+
+            const responseCall = !isAzureProvider
+              ? (params: ResponseCreateParams) =>
+                  this.oai.responses.create(params)
+              : (params: ResponseCreateParams) =>
+                  responsesCreateViaChatCompletions(
+                    this.oai,
+                    params as ResponseCreateParams & { stream: true },
+                  );
             log(
               `instructions (length ${mergedInstructions.length}): ${mergedInstructions}`,
             );
@@ -1186,16 +1185,18 @@ export class AgentLoop {
                 .filter(Boolean)
                 .join("\n");
 
-              const responseCall =
-                !this.config.provider ||
-                this.config.provider?.toLowerCase() === "openai"
-                  ? (params: ResponseCreateParams) =>
-                      this.oai.responses.create(params)
-                  : (params: ResponseCreateParams) =>
-                      responsesCreateViaChatCompletions(
-                        this.oai,
-                        params as ResponseCreateParams & { stream: true },
-                      );
+              const isAzureProvider =
+                this.provider.toLowerCase() === "azure" ||
+                (getBaseUrl(this.provider)?.includes("openai.azure.com") ?? false);
+
+              const responseCall = !isAzureProvider
+                ? (params: ResponseCreateParams) =>
+                    this.oai.responses.create(params)
+                : (params: ResponseCreateParams) =>
+                    responsesCreateViaChatCompletions(
+                      this.oai,
+                      params as ResponseCreateParams & { stream: true },
+                    );
 
               log(
                 "agentLoop.run(): responseCall(1): turnInput: " +
