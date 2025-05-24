@@ -798,9 +798,9 @@ export class AgentLoop {
               .filter(Boolean)
               .join("\n");
 
+            const provider = this.config.provider?.toLowerCase();
             const responseCall =
-              !this.config.provider ||
-              this.config.provider?.toLowerCase() === "openai"
+              !provider || provider === "openai" || provider === "azure"
                 ? (params: ResponseCreateParams) =>
                     this.oai.responses.create(params)
                 : (params: ResponseCreateParams) =>
@@ -1186,9 +1186,9 @@ export class AgentLoop {
                 .filter(Boolean)
                 .join("\n");
 
+              const provider = this.config.provider?.toLowerCase();
               const responseCall =
-                !this.config.provider ||
-                this.config.provider?.toLowerCase() === "openai"
+                !provider || provider === "openai" || provider === "azure"
                   ? (params: ResponseCreateParams) =>
                       this.oai.responses.create(params)
                   : (params: ResponseCreateParams) =>
